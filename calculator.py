@@ -1,127 +1,187 @@
 #!/usr/bin/env python3
-# GUI calculator built with tkinter
-# supports keyboard input too
+# calculator.py - a simple calculator with a retro terminal look
+# built using tkinter which comes with python so no extra installs
 
 import tkinter as tk
 
-BUTTONS = [
-    ["C",  "+/-", "%", "÷"],
-    ["7",  "8",   "9", "×"],
-    ["4",  "5",   "6", "−"],
-    ["1",  "2",   "3", "+"],
-    ["0",  ".",   "⌫", "="],
-]
+# colors
+bg_color      = "#0d0d0d"
+green         = "#00ff88"
+dark_green    = "#003322"
+red           = "#ff4444"
+dark_red      = "#1a0000"
+btn_color     = "#1a1a1a"
 
-BG          = "#0d0d0d"
-DISPLAY_BG  = "#0d0d0d"
-DISPLAY_FG  = "#00ff88"
-BTN_BG      = "#1a1a1a"
-BTN_FG      = "#00ff88"
-BTN_BORDER  = "#00ff88"
-OP_BG       = "#003322"
-OP_FG       = "#00ff88"
-EQ_BG       = "#00ff88"
-EQ_FG       = "#0d0d0d"
-CLEAR_BG    = "#1a0000"
-CLEAR_FG    = "#ff4444"
 
-SPECIAL_BG = {"=": EQ_BG,  "÷": OP_BG, "×": OP_BG, "−": OP_BG, "+": OP_BG, "C": CLEAR_BG}
-SPECIAL_FG = {"=": EQ_FG,  "÷": OP_FG, "×": OP_FG, "−": OP_FG, "+": OP_FG, "C": CLEAR_FG}
+def get_btn_colors(label):
+    # operators get a dark green background
+    if label in ("+", "−", "×", "÷"):
+        return dark_green, green
+    # equals is inverted - green background black text
+    elif label == "=":
+        return green, bg_color
+    # clear button is red
+    elif label == "C":
+        return dark_red, red
+    # everything else is the default dark button
+    else:
+        return btn_color, green
 
 
 class Calculator:
     def __init__(self, root):
-        self.root      = root
+        self.root = root
         self.root.title("Calculator")
         self.root.resizable(False, False)
-        self.root.configure(bg=BG)
-        self.expr      = ""
-        self.just_eval = False
+        self.root.configure(bg=bg_color)
 
-        # header label
-        tk.Label(root, text="[ CALC ]", font=("Courier", 11),
-                 bg=BG, fg="#005533").pack(anchor="w", padx=12, pady=(8, 0))
+        self.expression = ""
+        self.just_evaluated = False
 
-        self.display_var = tk.StringVar(value="0")
-        tk.Entry(root, textvariable=self.display_var, font=("Courier", 36, "bold"),
-                 justify="right", bd=0, bg=DISPLAY_BG, fg=DISPLAY_FG,
-                 readonlybackground=DISPLAY_BG, state="readonly",
-                 insertbackground=DISPLAY_FG).pack(fill="x", padx=12, pady=(2, 8))
+        # top label just to make it look different
+        tk.Label(root, text="CALC v1", font=("Courier", 10),
+                 bg=bg_color, fg=dark_green).pack(anchor="w", padx=12, pady=(8, 0))
 
-        tk.Frame(root, bg="#00ff88", height=1).pack(fill="x", padx=12, pady=(0, 8))
+        # the display where numbers show up
+        self.display = tk.StringVar()
+        self.display.set("0")
 
-        frame = tk.Frame(root, bg=BG)
-        frame.pack(padx=10, pady=(0, 10))
-        for r, row in enumerate(BUTTONS):
-            for c, label in enumerate(row):
-                bg = SPECIAL_BG.get(label, BTN_BG)
-                fg = SPECIAL_FG.get(label, BTN_FG)
-                tk.Button(frame, text=label, font=("Courier", 18, "bold"), width=4, height=2,
-                          bg=bg, fg=fg, activebackground="#003322", activeforeground="#00ff88",
-                          relief="flat", bd=0,
-                          command=lambda l=label: self.press(l)).grid(row=r, column=c, padx=2, pady=2)
+        tk.Entry(root, textvariable=self.display, font=("Courier", 34, "bold"),
+                 justify="right", state="readonly", bd=0,
+                 bg=bg_color, fg=green,
+                 readonlybackground=bg_color).pack(fill="x", padx=12, pady=(4, 6))
 
-        root.bind("<Key>", self.on_key)
+        # divider line
+        tk.Frame(root, bg=green, height=1).pack(fill="x", padx=12, pady=(0, 8))
 
-    def press(self, key):
-        if key in "0123456789":
-            if self.just_eval:
-                self.expr = ""; self.just_eval = False
-            self.expr = ("" if self.expr == "0" else self.expr) + key
+        # button grid
+        button_layout = [
+            ["C",  "+/-", "%", "÷"],
+            ["7",  "8",   "9", "×"],
+            ["4",  "5",   "6", "−"],
+            ["1",  "2",   "3", "+"],
+            ["0",  ".",   "⌫", "="],
+        ]
+
+        grid = tk.Frame(root, bg=bg_color)
+        grid.pack(padx=10, pady=(0, 10))
+
+        for row_num, row in enumerate(button_layout):
+            for col_num, label in enumerate(row):
+                bg, fg = get_btn_colors(label)
+
+                btn = tk.Button(grid, text=label, font=("Courier", 18, "bold"),
+                                width=4, height=2, bg=bg, fg=fg,
+                                activebackground=dark_green, activeforeground=green,
+                                relief="flat", bd=0)
+
+                # have to do this so each button remembers its own label
+                btn.config(command=lambda l=label: self.button_clicked(l))
+                btn.grid(row=row_num, column=col_num, padx=2, pady=2)
+
+        # keyboard support
+        root.bind("<Key>", self.handle_keypress)
+
+    def button_clicked(self, key):
+        if key.isdigit():
+            if self.just_evaluated:
+                self.expression = ""
+                self.just_evaluated = False
+            if self.expression == "0":
+                self.expression = key
+            else:
+                self.expression += key
 
         elif key == ".":
-            if self.just_eval:
-                self.expr = "0"; self.just_eval = False
-            last = self.expr.replace("+","÷").replace("÷"," ").replace("×"," ").replace("−"," ").split()[-1] if self.expr else ""
-            if "." not in last:
-                self.expr += ("0" if not self.expr else "") + "."
+            if self.just_evaluated:
+                self.expression = "0"
+                self.just_evaluated = False
+            if "." not in self.expression:
+                if self.expression == "":
+                    self.expression = "0"
+                self.expression += "."
 
         elif key in ("+", "−", "×", "÷"):
-            self.just_eval = False
-            if self.expr and self.expr[-1] in "+−×÷":
-                self.expr = self.expr[:-1]
-            self.expr += key
+            self.just_evaluated = False
+            # replace operator if one was already typed
+            if self.expression and self.expression[-1] in "+−×÷":
+                self.expression = self.expression[:-1]
+            self.expression += key
 
         elif key == "=":
-            if not self.expr:
+            if self.expression == "":
                 return
             try:
-                result = eval(self.expr.replace("×","*").replace("÷","/").replace("−","-"))
-                result = int(result) if result == int(result) else round(result, 10)
-                self.expr = str(result)
+                # swap out the display symbols for real python operators
+                to_eval = self.expression
+                to_eval = to_eval.replace("×", "*")
+                to_eval = to_eval.replace("÷", "/")
+                to_eval = to_eval.replace("−", "-")
+                result = eval(to_eval)
+                # show as int if theres no decimal part
+                if float(result) == int(result):
+                    self.expression = str(int(result))
+                else:
+                    self.expression = str(round(result, 8))
             except ZeroDivisionError:
-                self.expr = "Error"
-            except Exception:
-                self.expr = "Error"
-            self.just_eval = True
+                self.expression = "cant divide by 0"
+            except:
+                self.expression = "Error"
+            self.just_evaluated = True
 
         elif key == "C":
-            self.expr = ""; self.just_eval = False
+            self.expression = ""
+            self.just_evaluated = False
+
         elif key == "⌫":
-            self.expr = self.expr[:-1]
+            self.expression = self.expression[:-1]
+
         elif key == "+/-":
             try:
-                v = -float(self.expr)
-                self.expr = str(int(v) if v == int(v) else v)
-            except Exception: pass
+                val = float(self.expression) * -1
+                if float(val) == int(val):
+                    self.expression = str(int(val))
+                else:
+                    self.expression = str(val)
+            except:
+                pass
+
         elif key == "%":
             try:
-                v = float(self.expr) / 100
-                self.expr = str(int(v) if v == int(v) else v)
-            except Exception: pass
+                val = float(self.expression) / 100
+                if float(val) == int(val):
+                    self.expression = str(int(val))
+                else:
+                    self.expression = str(val)
+            except:
+                pass
 
-        self.display_var.set(self.expr if self.expr else "0")
+        # update the display
+        if self.expression == "":
+            self.display.set("0")
+        else:
+            self.display.set(self.expression)
 
-    def on_key(self, event):
-        m = {"*": "×", "/": "÷", "-": "−", "\r": "=", "\x08": "⌫"}
-        k = m.get(event.char, event.char)
-        if k in "0123456789.+−×÷=⌫C":
-            self.press(k)
+    def handle_keypress(self, event):
+        key = event.char
+
+        if key == "*":
+            self.button_clicked("×")
+        elif key == "/":
+            self.button_clicked("÷")
+        elif key == "-":
+            self.button_clicked("−")
+        elif key in ("\r", "\n"):
+            self.button_clicked("=")
+        elif event.keysym == "BackSpace":
+            self.button_clicked("⌫")
+        elif key in "0123456789.+C%":
+            self.button_clicked(key)
 
 
 def main():
     root = tk.Tk()
-    Calculator(root)
+    calc = Calculator(root)
     root.mainloop()
 
 
